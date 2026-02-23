@@ -39,10 +39,10 @@ To use Azure's speech recognition service, you can apply for a free token by ref
 
 
 ## Developing
-This project is based on Vue2. Just  `cd app`:
+This project is based on Vue 2.
 
-**install packages:** `npm install`
+**install packages:** `pnpm install`
 
-**develop:** `npm run serve`
+**develop:** `pnpm serve`
 
-**build:** `npm run build`
+**build:** `pnpm build`
