@@ -159,6 +159,21 @@
     </div>
 
 
+    <h1>Audio Recorder Extension</h1>
+    <div class="desc_text">
+      The Interview Copilot browser extension can be used to capture audio from your browser tab and microphone.
+      You can load this unpacked extension via Developer Mode on Google Chrome or Microsoft Edge.
+    </div>
+    <div class="separator" style="margin-bottom: 20px;">
+      <b>Installation steps:</b>
+      <ol style="margin-top: 5px; font-size: 14px; color: #606266; padding-left: 20px;">
+        <li>Go to your extensions page (<code>chrome://extensions</code> or <code>edge://extensions</code>).</li>
+        <li>Enable <b>Developer mode</b>.</li>
+        <li>Click <b>Load unpacked</b> and select the <code>browser-extension/extension/chrome</code> folder from the repository.</li>
+        <li>Click the extension icon or pin it to your toolbar to launch the dashboard and record meetings on any platform!</li>
+      </ol>
+    </div>
+
     <h1>Azure Speech Recognition</h1>
     <div class="desc_text">
       We use Microsoft Azure's speech recognition service. You can apply for a free Azure token by referring to <a

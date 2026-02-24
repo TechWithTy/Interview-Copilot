@@ -37,6 +37,17 @@ In order to use GPT, you need an Open AI API Token: https://platform.openai.com
 
 To use Azure's speech recognition service, you can apply for a free token by referring to [this tutorial](./docs/azure_speech_service_tutorial.md).
 
+## Browser Extension (Cross-Browser Audio Capture)
+
+For capturing both your microphone and the computer's system audio (interviewer's voice) simultaneously across any browser (Chrome, Firefox, Edge), you can use the built-in browser extension.
+
+### Installation
+1. Go to your browser's extensions page (`chrome://extensions` or `edge://extensions`).
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select the `browser-extension/extension/chrome` directory (or use the one in `browser-extension/extension/firefox` for Firefox).
+4. Launch the extension dashboard by clicking the extension icon in your toolbar.
+
+
 
 ## Developing
 This project is based on Vue 2.

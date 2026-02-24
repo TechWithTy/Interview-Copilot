@@ -1,5 +1,12 @@
 <template>
   <div class="homeview_container">
+    <el-alert
+      title="Pro Tip: Use the Browser Extension for System Audio"
+      type="info"
+      description="To capture the interviewer's voice clearly from meetings (Zoom/Teams/Meet), use our custom browser extension. Setup instructions are in the Settings page."
+      show-icon
+      style="margin-bottom: 20px;">
+    </el-alert>
     <div class="center_container">
       <div class="box">
         <div class="func_desc">
