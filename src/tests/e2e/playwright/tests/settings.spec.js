@@ -31,4 +31,39 @@ test.describe('Interview Copilot Settings Page Tests', () => {
     expect(localStorageVals.azure_token).toBe('azure-test-token-abc');
   });
 
+  test('should parse resume and JD from URLs', async ({ page }) => {
+    await page.goto('/#/setting');
+
+    // Mock the external CORS proxy for a resume
+    await page.route('**/api.allorigins.win/get?url=*', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ contents: '<html><body>Mocked Parsed Text</body></html>' })
+      });
+    });
+
+    // Test Resume URL parsing
+    const resumeUrlInput = page.locator('div.el-input', { hasText: 'Resume URL' }).locator('input');
+    await resumeUrlInput.fill('https://my-fake-resume.com');
+    await resumeUrlInput.blur();
+
+    const parseResumeBtn = page.locator('div.el-input', { hasText: 'Resume URL' }).locator('button', { hasText: 'Parse URL' });
+    await parseResumeBtn.click();
+
+    const resumeTextarea = page.locator('textarea[placeholder="Paste your resume content here..."]');
+    await expect(resumeTextarea).toHaveValue('Mocked Parsed Text');
+
+    // Test JD URL parsing
+    const jdUrlInput = page.locator('div.el-input', { hasText: 'JD URL' }).locator('input');
+    await jdUrlInput.fill('https://my-fake-jd.com');
+    await jdUrlInput.blur();
+
+    const parseJdBtn = page.locator('div.el-input', { hasText: 'JD URL' }).locator('button', { hasText: 'Parse URL' });
+    await parseJdBtn.click();
+
+    const jdTextarea = page.locator('textarea[placeholder="Paste the JD text here..."]');
+    await expect(jdTextarea).toHaveValue('Mocked Parsed Text');
+  });
+
 });

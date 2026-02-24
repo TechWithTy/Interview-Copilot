@@ -55,6 +55,11 @@
         style="margin-bottom: 5px;">
         <el-button size="mini" type="primary" plain>Upload Resume File (.txt, .md)</el-button>
       </el-upload>
+      <el-input placeholder="e.g. https://linkedin.com/in/... or personal site" v-model="resume_url"
+                @change="onKeyChange('resume_url')" style="margin-bottom: 5px;">
+        <template slot="prepend">Resume URL</template>
+        <el-button slot="append" icon="el-icon-download" @click="fetchAndParseURL('resume_url', 'resume_text')">Parse URL</el-button>
+      </el-input>
       <el-input type="textarea" placeholder="Paste your resume content here..." :rows="5"
                 v-model="resume_text" @change="onKeyChange('resume_text')"/>
     </div>
@@ -73,6 +78,7 @@
       <el-input placeholder="e.g. https://linkedin.com/jobs/..." v-model="jd_url"
                 @change="onKeyChange('jd_url')" style="margin-bottom: 5px;">
         <template slot="prepend">JD URL</template>
+        <el-button slot="append" icon="el-icon-download" @click="fetchAndParseURL('jd_url', 'job_description')">Parse URL</el-button>
       </el-input>
       <el-input type="textarea" placeholder="Paste the JD text here..." :rows="5"
                 v-model="job_description" @change="onKeyChange('job_description')"/>
@@ -201,6 +207,7 @@ export default {
       gpt_system_prompt: "",
       gpt_prompt_template: "",
       resume_text: "",
+      resume_url: "",
       job_description: "",
       jd_url: "",
       agent_role: "",
@@ -282,6 +289,7 @@ export default {
     this.gpt_system_prompt = config_util.gpt_system_prompt()
     this.gpt_prompt_template = config_util.gpt_prompt_template()
     this.resume_text = localStorage.getItem("resume_text") || ""
+    this.resume_url = localStorage.getItem("resume_url") || ""
     this.job_description = localStorage.getItem("job_description") || ""
     this.jd_url = localStorage.getItem("jd_url") || ""
     this.agent_role = localStorage.getItem("agent_role") || ""
@@ -380,6 +388,32 @@ export default {
     },
     toDef() {
       localStorage.clear();
+    },
+    async fetchAndParseURL(urlKey, textKey) {
+      const url = this[urlKey];
+      if (!url) {
+        this.$message.warning("Please enter a valid URL first.");
+        return;
+      }
+      this.$message.info("Extracting text from URL...");
+      try {
+         const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+         if (!response.ok) throw new Error("Network response was not ok");
+         const data = await response.json();
+         
+         const parser = new DOMParser();
+         const doc = parser.parseFromString(data.contents, "text/html");
+         const bodyText = doc.body.innerText || "";
+         
+         const extracted = bodyText.replace(/\s+/g, ' ').trim();
+         this[textKey] = extracted;
+         this.onKeyChange(textKey);
+         
+         this.$message.success("Successfully parsed URL!");
+      } catch (e) {
+         console.error(e);
+         this.$message.error("Failed to parse URL. Make sure it's accessible or try pasting manually.");
+      }
     }
   }
 
