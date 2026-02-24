@@ -12,3 +12,4 @@ new Vue({
   store,
   render: h => h(App)
 }).$mount('#app')
+console.log('ENV MODEL:', process.env.VUE_APP_GPT_MODEL)

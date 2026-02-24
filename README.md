@@ -45,4 +45,9 @@ This project is based on Vue 2.
 
 **develop:** `pnpm serve`
 
+*You may also pass optional configuration arguments via terminal flags using the `VUE_APP_` environment pipeline inside `vue.config.js` like so:*
+```bash
+pnpm run dev --gpt-model="gpt-4" --azure-region="eastus" --azure-language="en-US" --gpt-system-prompt="You are a helpful interviewer."
+```
+
 **build:** `pnpm build`
