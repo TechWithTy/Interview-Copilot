@@ -1,3 +1,5 @@
+import { getCompanyPromptByKey, getPromptPresetByValue } from "./interview_presets"
+
 // const def_prompt = `The following is a transcript of an interview dialogue. Please extract the last question asked by the interviewer and provide an answer. If it is an algorithm question, please provide the approach and code implementation. If no question is found, there is no need to respond.`
 
 
@@ -19,6 +21,57 @@ function gpt_model() {
 
 function gpt_prompt_template() {
     return process.env.VUE_APP_GPT_PROMPT_TEMPLATE || localStorage.getItem("gpt_prompt_template") || ""
+}
+
+function selected_company() {
+    return localStorage.getItem("selected_company") || "generic"
+}
+
+function selected_company_prompt_key() {
+    return localStorage.getItem("selected_company_prompt_key") || ""
+}
+
+function system_prompt_mode() {
+    const storedMode = localStorage.getItem("system_prompt_mode")
+    if (storedMode === "preset" || storedMode === "custom") {
+        return storedMode
+    }
+
+    return gpt_system_prompt() ? "custom" : "preset"
+}
+
+function selected_system_prompt_preset() {
+    const combined = localStorage.getItem("selected_system_prompt_preset")
+    if (combined) {
+        return combined
+    }
+
+    const company = selected_company()
+    const promptKey = selected_company_prompt_key() || getDefaultSystemPromptPresetForCompany(company)
+    return `${company}:${promptKey}`
+}
+
+function getDefaultSystemPromptPresetForCompany(company) {
+    return getCompanyPromptByKey(company, "").key || ""
+}
+
+function effective_gpt_system_prompt() {
+    const mode = system_prompt_mode()
+    const directPrompt = gpt_system_prompt()
+    if (mode === "custom") {
+        return directPrompt || ""
+    }
+
+    const presetValue = selected_system_prompt_preset()
+    const preset = getPromptPresetByValue(presetValue)
+
+    if (preset) {
+        return preset.value || ""
+    }
+
+    const company = selected_company()
+    const promptKey = selected_company_prompt_key()
+    return getCompanyPromptByKey(company, promptKey).value || ""
 }
 
 function agent_role() {
@@ -73,7 +126,12 @@ export default {
     openai_key,
     azure_token,
     gpt_system_prompt,
+    effective_gpt_system_prompt,
     gpt_prompt_template,
+    system_prompt_mode,
+    selected_system_prompt_preset,
+    selected_company,
+    selected_company_prompt_key,
     azure_language,
     azure_region,
     gpt_model,

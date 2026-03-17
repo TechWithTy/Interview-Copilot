@@ -25,20 +25,48 @@
     </div>
 
     <div class="separator">
-      <div class="desc_text">Prompt Template:</div>
-      <div class="desc_text" style="font-size: 12px; margin-bottom: 5px;">This defines the core task (e.g. extracting questions). Select a preset or type your own.</div>
+      <div class="desc_text">System Prompt Source:</div>
+      <div class="desc_text" style="font-size: 12px; margin-bottom: 5px;">Choose whether the assistant uses a preset system prompt or your custom override.</div>
+      <el-radio-group v-model="system_prompt_mode" @change="onSystemPromptModeChange" style="margin-bottom: 10px;">
+        <el-radio label="preset">Preset</el-radio>
+        <el-radio label="custom">Custom</el-radio>
+      </el-radio-group>
+    </div>
+
+    <div class="separator system-prompt-block" :class="{ 'is-inactive': system_prompt_mode === 'custom' }">
+      <div class="desc_text">System Prompt Preset:</div>
+      <div class="desc_text" style="font-size: 12px; margin-bottom: 5px;">Generic and company presets are combined here. This is active only when `Preset` is selected above.</div>
+      <el-select v-model="selected_system_prompt_preset" @change="onSystemPromptPresetChange" placeholder="Select a system prompt preset..." filterable :disabled="system_prompt_mode === 'custom'" style="width: 100%; margin-bottom: 10px;">
+        <el-option-group v-for="group in system_prompt_preset_groups" :key="group.company" :label="group.label">
+          <el-option v-for="item in group.options" :key="item.value" :label="item.label" :value="item.value"></el-option>
+        </el-option-group>
+      </el-select>
+      <div class="desc_text" style="font-size: 12px; margin-bottom: 10px;">Selected preset: <b>{{ activeSystemPromptPresetLabel }}</b></div>
+    </div>
+
+    <div class="separator">
+      <div class="desc_text">User Prompt Template:</div>
+      <div class="desc_text" style="font-size: 12px; margin-bottom: 5px;">This is separate from the system prompt. It becomes part of the user message sent with the transcript. Leave it empty if you do not want any extra user prompt template.</div>
       <el-select v-model="gpt_prompt_template" @change="onKeyChange('gpt_prompt_template')" placeholder="Select a preset..." filterable style="width: 100%; margin-bottom: 10px;">
         <el-option v-for="item in prompt_presets" :key="item.label" :label="item.label" :value="item.value"></el-option>
       </el-select>
       <el-input type="textarea" placeholder="Describe the task here..." :rows="3"
                 v-model="gpt_prompt_template" @change="onKeyChange('gpt_prompt_template')"/>
+      <el-button v-if="gpt_prompt_template" size="mini" plain @click="clearPromptTemplate" style="margin-top: 8px;">Clear User Prompt Template</el-button>
     </div>
 
-    <div class="separator">
-      <div class="desc_text">Custom System Prompt (Persona):</div>
-      <div class="desc_text" style="font-size: 12px; margin-bottom: 5px;">Set a global persona or instructions that persist regardless of the template.</div>
-      <el-input type="textarea" placeholder="e.g. You are a world-class hiring manager." :rows="3"
-                v-model="gpt_system_prompt" @change="onKeyChange('gpt_system_prompt')"/>
+    <div class="separator system-prompt-block" :class="{ 'is-inactive': system_prompt_mode === 'preset' }">
+      <div class="desc_text">System Prompt:</div>
+      <div class="desc_text" style="font-size: 12px; margin-bottom: 5px;">{{ system_prompt_mode === 'preset' ? 'Showing the selected preset prompt. Switch to `Custom` to edit your own prompt.' : 'Custom prompt is active. Edit it below.' }}</div>
+      <el-input
+        type="textarea"
+        placeholder="e.g. You are a world-class hiring manager."
+        :rows="6"
+        :value="systemPromptEditorValue"
+        @input="onSystemPromptEditorInput"
+        :disabled="system_prompt_mode === 'preset'"/>
+      <div class="desc_text" style="font-size: 12px; margin-top: 5px;">Current source: <b>{{ effectiveSystemPromptSource }}</b></div>
+      <el-button v-if="gpt_system_prompt" size="mini" plain @click="clearSystemPromptOverride" style="margin-top: 8px;">Clear Custom Prompt</el-button>
     </div>
 
     <h1>Interview Context</h1>
@@ -50,18 +78,18 @@
         action=""
         :auto-upload="false"
         :show-file-list="false"
-        accept=".txt,.md"
+        accept=".txt,.md,.pdf,.docx"
         :on-change="handleResumeUpload"
         style="margin-bottom: 5px;">
-        <el-button size="mini" type="primary" plain>Upload Resume File (.txt, .md)</el-button>
+        <el-button size="mini" type="primary" plain>Upload Resume File (.txt, .md, .pdf, .docx)</el-button>
       </el-upload>
       <el-input placeholder="e.g. https://linkedin.com/in/... or personal site" v-model="resume_url"
-                @change="onKeyChange('resume_url')" style="margin-bottom: 5px;">
+                @input="onKeyChange('resume_url')" style="margin-bottom: 5px;">
         <template slot="prepend">Resume URL</template>
         <el-button slot="append" icon="el-icon-download" @click="fetchAndParseURL('resume_url', 'resume_text')">Parse URL</el-button>
       </el-input>
       <el-input type="textarea" placeholder="Paste your resume content here..." :rows="5"
-                v-model="resume_text" @change="onKeyChange('resume_text')"/>
+                v-model="resume_text" @input="onKeyChange('resume_text')"/>
     </div>
 
     <div class="separator">
@@ -70,27 +98,27 @@
         action=""
         :auto-upload="false"
         :show-file-list="false"
-        accept=".txt,.md"
+        accept=".txt,.md,.pdf,.docx"
         :on-change="handleJdUpload"
         style="margin-bottom: 5px;">
-        <el-button size="mini" type="primary" plain>Upload Job Description File (.txt, .md)</el-button>
+        <el-button size="mini" type="primary" plain>Upload Job Description File (.txt, .md, .pdf, .docx)</el-button>
       </el-upload>
       <el-input placeholder="e.g. https://linkedin.com/jobs/..." v-model="jd_url"
-                @change="onKeyChange('jd_url')" style="margin-bottom: 5px;">
+                @input="onKeyChange('jd_url')" style="margin-bottom: 5px;">
         <template slot="prepend">JD URL</template>
         <el-button slot="append" icon="el-icon-download" @click="fetchAndParseURL('jd_url', 'job_description')">Parse URL</el-button>
       </el-input>
       <el-input type="textarea" placeholder="Paste the JD text here..." :rows="5"
-                v-model="job_description" @change="onKeyChange('job_description')"/>
+                v-model="job_description" @input="onKeyChange('job_description')"/>
     </div>
 
-    <div class="separator">
+    <div class="separator settings-panel">
       <div class="desc_text">Expected Questions & Answers:</div>
       <div class="desc_text" style="font-size: 12px; margin-bottom: 5px;">Input Q&As generalized for interviews that you may be asked.</div>
       
-      <div v-for="(item, index) in expected_qa_list" :key="index" style="margin-bottom: 15px; border: 1px solid #EBEEF5; padding: 15px; border-radius: 4px; background-color: #fafafa;">
+      <div v-for="(item, index) in expected_qa_list" :key="index" class="qa-card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <span style="font-size: 14px; font-weight: bold; color: #606266;">Question {{ index + 1 }}</span>
+          <span class="qa-card-title">Question {{ index + 1 }}</span>
           <el-button type="danger" icon="el-icon-delete" circle size="mini" @click="removeQA(index)"></el-button>
         </div>
         <el-select 
@@ -117,21 +145,17 @@
     <h1>Agent Personalization</h1>
     <div class="desc_text">Customize how the AI behaves during the interview.</div>
     
-    <div class="separator">
+    <div class="separator settings-panel">
       <div style="margin-bottom: 5px; color: #606266; font-size: 14px;">Agent Role:</div>
       <el-select v-model="agent_role" filterable allow-create @change="onKeyChange('agent_role')" placeholder="e.g. strict interviewer" style="width: 100%;">
         <el-option v-for="role in agent_roles" :key="role" :label="role" :value="role"></el-option>
       </el-select>
-    </div>
-    
-    <div class="separator">
+
       <div style="margin-bottom: 5px; color: #606266; font-size: 14px;">Agent Tone/Personality:</div>
       <el-select v-model="agent_tone" filterable allow-create @change="onKeyChange('agent_tone')" placeholder="e.g. friendly and encouraging" style="width: 100%;">
         <el-option v-for="tone in agent_tones" :key="tone" :label="tone" :value="tone"></el-option>
       </el-select>
-    </div>
 
-    <div class="separator" style="margin-bottom: 20px;">
       <div style="margin-bottom: 5px; color: #606266; font-size: 14px;">Interview Difficulty / Level:</div>
       <el-select v-model="interview_difficulty" filterable allow-create @change="onKeyChange('interview_difficulty')" placeholder="e.g. Senior Software Engineer" style="width: 100%;">
         <el-option v-for="diff in interview_difficulties" :key="diff" :label="diff" :value="diff"></el-option>
@@ -211,16 +235,63 @@
 
 <script>
 import config_util from "../utils/config_util"
+import {
+  GENERIC_PROMPT_PRESETS,
+  getCompanyPromptByKey,
+  getAllCompanyPromptOptions,
+  getPromptPresetByValue,
+} from "../utils/interview_presets"
 
 export default {
   name: 'HelloWorld',
   props: {},
+  computed: {
+    effectiveSystemPromptSource() {
+      return this.system_prompt_mode === "custom" ? "Custom prompt" : "Preset"
+    },
+    activeSystemPromptPresetLabel() {
+      const preset = getPromptPresetByValue(this.selected_system_prompt_preset)
+      if (preset) {
+        return preset.label
+      }
+
+      const fallbackPreset = getCompanyPromptByKey(this.selected_company, this.selected_company_prompt_key)
+      return fallbackPreset.label || "None"
+    },
+    selectedPresetCompany() {
+      const preset = getPromptPresetByValue(this.selected_system_prompt_preset)
+      return preset?.company || "generic"
+    },
+    selectedPresetKey() {
+      const preset = getPromptPresetByValue(this.selected_system_prompt_preset)
+      return preset?.key || ""
+    },
+    selectedPresetPromptValue() {
+      const preset = getPromptPresetByValue(this.selected_system_prompt_preset)
+      return preset?.value || ""
+    },
+    isCustomPromptActive() {
+      return this.system_prompt_mode === "custom"
+    },
+    systemPromptEditorValue() {
+      if (this.system_prompt_mode === "preset") {
+        return this.selectedPresetPromptValue
+      }
+
+      return this.gpt_system_prompt
+    }
+  },
   data() {
     return {
       display_openai_key: "",
       gpt_model: "gpt-3.5-turbo",
       gpt_system_prompt: "",
       gpt_prompt_template: "",
+      system_prompt_mode: "preset",
+      selected_system_prompt_preset: "generic:generic-default",
+      selected_company: "generic",
+      selected_company_prompt_key: "",
+      system_prompt_preset_groups: getAllCompanyPromptOptions(),
       resume_text: "",
       resume_url: "",
       job_description: "",
@@ -262,13 +333,7 @@ export default {
         "gpt-3.5-turbo", "gpt-3.5-turbo-16k", "gpt-3.5-turbo-1106", "gpt-3.5-turbo-0125"
       ],
       selected_preset_prompt: "",
-      prompt_presets: [
-        { label: "Default Interviewer", value: "The following is a transcript of an interview dialogue. Please extract the last question asked by the interviewer and provide an answer. If it is an algorithm question, please provide the approach and code implementation. If no question is found, there is no need to respond." },
-        { label: "Software Engineer", value: "You are an assistant for a Software Engineering Interview. Listen to the transcript, extract the last question asked, and provide a comprehensive, accurate, and concise technical response with code examples if applicable." },
-        { label: "Product Manager", value: "You are an assistant for a Product Manager Interview. Listen to the transcript, extract the last question asked, and provide a strategic, user-centric, and clear response highlighting metrics, user needs, and product vision." },
-        { label: "Data Scientist", value: "You are an assistant for a Data Scientist Interview. Extract the last question from the transcript and provide a detailed response focusing on statistical accuracy, data modeling techniques, and practical business applications." },
-        { label: "System Design", value: "You are an assistant for a System Design Interview. Extract the latest question from the transcript and provide a scalable, highly-available, and performant architectural solution. Discuss trade-offs, bottlenecks, and components (e.g. load balancers, caching, databases)." }
-      ],
+      prompt_presets: GENERIC_PROMPT_PRESETS,
       agent_roles: [
         "Interviewer (Ask questions, critique answers)",
         "Co-Pilot/Helper (Provide hints, solve questions for me)",
@@ -301,6 +366,11 @@ export default {
     }
   },
   mounted() {
+    this.system_prompt_mode = config_util.system_prompt_mode()
+    this.selected_system_prompt_preset = config_util.selected_system_prompt_preset()
+    const selectedPreset = getPromptPresetByValue(this.selected_system_prompt_preset)
+    this.selected_company = selectedPreset?.company || config_util.selected_company()
+    this.selected_company_prompt_key = selectedPreset?.key || config_util.selected_company_prompt_key()
     this.gpt_system_prompt = config_util.gpt_system_prompt()
     this.gpt_prompt_template = config_util.gpt_prompt_template()
     this.resume_text = localStorage.getItem("resume_text") || ""
@@ -332,6 +402,134 @@ export default {
     this.azure_language = config_util.azure_language()
   },
   methods: {
+    onSystemPromptModeChange(val) {
+      this.system_prompt_mode = val
+      localStorage.setItem("system_prompt_mode", val)
+    },
+    onSystemPromptPresetChange(val) {
+      this.selected_system_prompt_preset = val
+      localStorage.setItem("selected_system_prompt_preset", val)
+      const preset = getPromptPresetByValue(val)
+      if (preset) {
+        this.selected_company = preset.company
+        this.selected_company_prompt_key = preset.key
+        localStorage.setItem("selected_company", preset.company)
+        localStorage.setItem("selected_company_prompt_key", preset.key)
+      }
+    },
+    onSystemPromptOverrideInput() {
+      this.onKeyChange("gpt_system_prompt")
+    },
+    onSystemPromptEditorInput(val) {
+      if (this.system_prompt_mode === "preset") {
+        return
+      }
+
+      this.gpt_system_prompt = val
+      this.onSystemPromptOverrideInput()
+    },
+    clearSystemPromptOverride() {
+      this.gpt_system_prompt = ""
+      this.onKeyChange("gpt_system_prompt")
+      this.system_prompt_mode = "preset"
+      localStorage.setItem("system_prompt_mode", "preset")
+      this.$message.success(`Custom system prompt cleared. Using "${this.activeSystemPromptPresetLabel}" preset.`)
+    },
+    clearPromptTemplate() {
+      this.gpt_prompt_template = ""
+      this.onKeyChange("gpt_prompt_template")
+      this.$message.success("User prompt template cleared.")
+    },
+    getFileExtension(name = "") {
+      const parts = name.toLowerCase().split(".");
+      return parts.length > 1 ? parts.pop() : "";
+    },
+    async readTextFile(file) {
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target.result || "");
+        reader.onerror = () => reject(new Error("Failed to read text file."));
+        reader.readAsText(file);
+      });
+    },
+    async readArrayBuffer(file) {
+      if (file && typeof file.arrayBuffer === "function") {
+        return await file.arrayBuffer();
+      }
+
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(event.target.result);
+        reader.onerror = () => reject(new Error("Failed to read file."));
+        reader.readAsArrayBuffer(file);
+      });
+    },
+    async extractPdfText(fileOrBlob) {
+      const pdfjsModule = await import("pdfjs-dist/build/pdf");
+      const pdfjs = pdfjsModule.default || pdfjsModule;
+      const pdfWorkerModule = await import("pdfjs-dist/build/pdf.worker.entry");
+      const pdfWorker = pdfWorkerModule.default || pdfWorkerModule;
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+      const arrayBuffer = await this.readArrayBuffer(fileOrBlob);
+      const pdf = await pdfjs.getDocument({
+        data: arrayBuffer,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+      }).promise;
+      const pageTexts = [];
+
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        const text = content.items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ");
+        pageTexts.push(text);
+      }
+
+      return pageTexts.join("\n").replace(/\s+/g, " ").trim();
+    },
+    async extractDocxText(fileOrBlob) {
+      const mammothModule = await import("mammoth");
+      const mammoth = mammothModule.default || mammothModule;
+      const arrayBuffer = await this.readArrayBuffer(fileOrBlob);
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      return (result.value || "").replace(/\s+/g, " ").trim();
+    },
+    async extractTextFromFile(fileOrBlob, filename = "", mimeType = "") {
+      const extension = this.getFileExtension(filename);
+      const normalizedMimeType = (mimeType || "").toLowerCase();
+
+      if (extension === "txt" || extension === "md" || normalizedMimeType.startsWith("text/")) {
+        return await this.readTextFile(fileOrBlob);
+      }
+
+      if (extension === "pdf" || normalizedMimeType === "application/pdf") {
+        return await this.extractPdfText(fileOrBlob);
+      }
+
+      if (
+        extension === "docx" ||
+        normalizedMimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ) {
+        return await this.extractDocxText(fileOrBlob);
+      }
+
+      throw new Error(`Unsupported file type: ${filename || mimeType || "unknown"}`);
+    },
+    async populateTextFromFile(file, targetKey, label) {
+      if (!file) return;
+
+      try {
+        const extractedText = await this.extractTextFromFile(file, file.name, file.type);
+        this[targetKey] = extractedText;
+        this.onKeyChange(targetKey);
+        this.$message.success(`${label} parsed successfully.`);
+      } catch (error) {
+        console.error(error);
+        this.$message.error(`Failed to parse ${label}. Supported formats: .txt, .md, .pdf, .docx`);
+      }
+    },
     redactKey(key) {
       if (!key) return "";
       if (key.length <= 8) return "********";
@@ -383,23 +581,13 @@ export default {
       this.api_credits_used = 0;
       this.onKeyChange('api_credits_used');
     },
-    handleResumeUpload(file) {
+    async handleResumeUpload(file) {
       if (!file || !file.raw) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.resume_text = e.target.result;
-        this.onKeyChange('resume_text');
-      };
-      reader.readAsText(file.raw);
+      await this.populateTextFromFile(file.raw, "resume_text", "resume");
     },
-    handleJdUpload(file) {
+    async handleJdUpload(file) {
       if (!file || !file.raw) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.job_description = e.target.result;
-        this.onKeyChange('job_description');
-      };
-      reader.readAsText(file.raw);
+      await this.populateTextFromFile(file.raw, "job_description", "job description");
     },
     toDef() {
       localStorage.clear();
@@ -412,22 +600,67 @@ export default {
       }
       this.$message.info("Extracting text from URL...");
       try {
-         const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-         if (!response.ok) throw new Error("Network response was not ok");
-         const data = await response.json();
-         
+         const pathname = (() => {
+           try {
+             return new URL(url).pathname;
+           } catch (error) {
+             return url;
+           }
+         })();
+         const extension = this.getFileExtension(pathname);
+         let directResponse = null;
+
+         try {
+           directResponse = await fetch(url);
+         } catch (error) {
+           directResponse = null;
+         }
+
+         const contentType = directResponse
+           ? (directResponse.headers.get("content-type") || "").toLowerCase()
+           : "";
+         const isDocumentUrl =
+           extension === "pdf" ||
+           extension === "docx" ||
+           contentType.includes("application/pdf") ||
+           contentType.includes("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+         if (isDocumentUrl) {
+           if (!directResponse || !directResponse.ok) {
+             throw new Error("Document URL must be publicly accessible and allow direct download.");
+           }
+
+           const blob = await directResponse.blob();
+           const extracted = await this.extractTextFromFile(blob, pathname, contentType);
+           this[textKey] = extracted;
+           this.onKeyChange(textKey);
+           this.$message.success("Successfully parsed URL!");
+           return;
+         }
+
+         let html = "";
+         try {
+           if (!directResponse.ok) throw new Error("Network response was not ok");
+           html = await directResponse.text();
+         } catch (error) {
+           const proxyResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+           if (!proxyResponse.ok) throw new Error("Network response was not ok");
+           const proxyData = await proxyResponse.json();
+           html = proxyData.contents || "";
+         }
+
          const parser = new DOMParser();
-         const doc = parser.parseFromString(data.contents, "text/html");
-         const bodyText = doc.body.innerText || "";
-         
+         const doc = parser.parseFromString(html, "text/html");
+         const bodyText = doc.body ? doc.body.innerText || "" : html;
+
          const extracted = bodyText.replace(/\s+/g, ' ').trim();
          this[textKey] = extracted;
          this.onKeyChange(textKey);
-         
+
          this.$message.success("Successfully parsed URL!");
       } catch (e) {
          console.error(e);
-         this.$message.error("Failed to parse URL. Make sure it's accessible or try pasting manually.");
+         this.$message.error("Failed to parse URL. Make sure it's accessible, public, and in HTML, PDF, or DOCX format.");
       }
     }
   }
@@ -438,15 +671,53 @@ export default {
 
 </script>
 <style scoped>
-
 .separator {
   margin-top: 10px;
 }
 
+.settings-panel {
+  border: 1px solid var(--settings-border);
+  background: var(--settings-panel-bg);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.qa-card {
+  margin-bottom: 15px;
+  border: 1px solid var(--settings-border);
+  padding: 15px;
+  border-radius: 4px;
+  background-color: var(--settings-card-bg);
+}
+
+.qa-card-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--settings-text);
+}
+
 .desc_text {
-  color: gray;
+  color: var(--settings-muted);
   font-size: small;
   margin-bottom: 3px;
+}
+
+:host, .separator {
+  --settings-panel-bg: #ffffff;
+  --settings-card-bg: #fafafa;
+  --settings-border: #ebeef5;
+  --settings-text: #606266;
+  --settings-muted: gray;
+}
+
+@media (prefers-color-scheme: dark) {
+  :host, .separator {
+    --settings-panel-bg: #111827;
+    --settings-card-bg: #0f172a;
+    --settings-border: #374151;
+    --settings-text: #e5e7eb;
+    --settings-muted: #cbd5e1;
+  }
 }
 
 </style>

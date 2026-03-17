@@ -5,92 +5,169 @@
       type="info"
       description="To capture the interviewer's voice clearly from meetings (Zoom/Teams/Meet), use our custom browser extension. Setup instructions are in the Settings page."
       show-icon
+      class="premium-alert"
       style="margin-bottom: 20px;">
     </el-alert>
+    
+    <div class="title_function_bar">
+      <el-button
+          type="success"
+          class="pulse-btn start-btn"
+          @click="startCopilot" v-show="state==='end'" :loading="copilot_starting"
+          :disabled="copilot_starting"><i class="el-icon-mic"></i> Start Copilot
+      </el-button>
+      <el-button
+          type="danger"
+          class="pulse-btn stop-btn"
+          :loading="copilot_stopping"
+          @click="userStopCopilot" v-show="state==='ing'"><i class="el-icon-turn-off"></i> Stop Copilot
+      </el-button>
+      <MyTimer ref="MyTimer" v-show="state==='ing'" class="timer-display"/>
+    </div>
+
     <div class="center_container">
-      <div class="box">
-        <div class="func_desc">
-          <i class="el-icon-microphone"></i>
-          Speech Recognition Results
+      <div class="panel left-panel">
+        <div class="panel-header">
+          <i class="el-icon-microphone"></i> <span>Speech Recognition Results</span>
         </div>
-        <div v-show="!currentText && state !== 'ing'" style="color: gray; margin-bottom: 5px; font-size: 14px;">No Content - Start Copilot</div>
+        <div v-show="!currentText && state !== 'ing'" class="empty-state">No Content - Start Copilot</div>
         <el-input
           type="textarea"
           v-model="currentText"
           readonly
           placeholder="Speech recognition will appear here..."
-          class="asr_content_input"
-          :autosize="{ minRows: 6, maxRows: 10 }">
+          class="premium-input asr_content_input"
+          :autosize="{ minRows: 8, maxRows: 12 }">
         </el-input>
         
-        <div class="func_desc" style="margin-top: 15px;">
-          <i class="el-icon-edit"></i>
-          Manual Input
+        <div class="panel-header" style="margin-top: 25px;">
+          <i class="el-icon-edit"></i> <span>Manual Input</span>
         </div>
         <el-input
           type="textarea"
           v-model="manualText"
           placeholder="Type manually here... (e.g. interviewer's question or your own notes)"
-          class="manual_content_input"
-          :autosize="{ minRows: 4, maxRows: 6 }">
+          class="premium-input manual_content_input"
+          :autosize="{ minRows: 4, maxRows: 6 }"
+          @keyup.enter.native.ctrl="submitManualText">
         </el-input>
         
         <div class="single_part_bottom_bar">
-          <el-button icon="el-icon-position" type="primary" :disabled="!manualText" @click="submitManualText">
+          <el-button class="action-btn submit-btn" icon="el-icon-position" type="primary" :disabled="!manualText" @click="submitManualText">
             Submit Manual Input
           </el-button>
-          <el-button icon="el-icon-delete" :disabled="!currentText && !manualText" @click="clearASRContent" style="margin-left: 10px;">
+          <el-button class="action-btn clear-btn" icon="el-icon-delete" type="danger" plain :disabled="!currentText && !manualText" @click="clearASRContent">
             Clear
           </el-button>
         </div>
       </div>
-      <div class="box" style="border-left: none;">
-        <div class="func_desc" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-          <div><i class="el-icon-s-custom"></i> GPT Answer</div>
-          <el-button type="text" size="medium" :icon="show_gpt_settings ? 'el-icon-arrow-up' : 'el-icon-setting'" @click="show_gpt_settings = !show_gpt_settings">
-            {{ show_gpt_settings ? 'Hide Settings' : 'Settings' }}
-          </el-button>
+      
+      <div class="panel right-panel">
+        <div class="panel-header collapsable-header" @click="show_gpt_settings = !show_gpt_settings">
+          <div style="display: flex; align-items: center; gap: 8px;"><i class="el-icon-s-custom"></i> <span>GPT Answer</span></div>
+          <i :class="show_gpt_settings ? 'el-icon-arrow-up' : 'el-icon-setting'" class="toggle-icon"></i>
         </div>
         
         <el-collapse-transition>
           <div v-show="show_gpt_settings" class="gpt-settings-panel">
-            <el-select v-model="gpt_prompt_template" @change="onPromptTemplateChange" placeholder="Select Prompt Template" filterable allow-create size="small" style="width: 100%;">
+            <el-select v-model="gpt_prompt_template" @change="onPromptTemplateChange" placeholder="Select Prompt Template" filterable allow-create size="small" style="width: 100%; margin-bottom: 12px;" class="premium-select">
               <el-option v-for="item in prompt_presets" :key="item.label" :label="item.label" :value="item.value"></el-option>
             </el-select>
             
-            <div style="display: flex; gap: 20px; align-items: center;">
-              <el-switch v-model="auto_ask_gpt" active-text="Auto Ask GPT"></el-switch>
-              <el-switch v-model="use_personalization" active-text="Use Context/Persona"></el-switch>
+            <div class="settings-toggles">
+              <div class="toggle-item">
+                <span class="toggle-label">Auto Ask GPT</span>
+                <el-switch v-model="auto_ask_gpt" class="premium-switch"></el-switch>
+              </div>
+              <div class="toggle-item">
+                <span class="toggle-label">Use Context/Persona</span>
+                <el-switch v-model="use_personalization" class="premium-switch"></el-switch>
+              </div>
+            </div>
+
+            <div class="pre-run-context">
+              <div class="context-title">Pre-Run Context</div>
+              <el-select v-model="agent_role" filterable allow-create @change="onPreRunContextChange('agent_role')" placeholder="Agent Role" size="small" style="width: 100%; margin-bottom: 10px;" class="premium-select">
+                <el-option v-for="role in agent_roles" :key="role" :label="role" :value="role"></el-option>
+              </el-select>
+              <el-select v-model="agent_tone" filterable allow-create @change="onPreRunContextChange('agent_tone')" placeholder="Agent Tone / Personality" size="small" style="width: 100%; margin-bottom: 10px;" class="premium-select">
+                <el-option v-for="tone in agent_tones" :key="tone" :label="tone" :value="tone"></el-option>
+              </el-select>
+              <el-select v-model="interview_difficulty" filterable allow-create @change="onPreRunContextChange('interview_difficulty')" placeholder="Interview Difficulty / Level" size="small" style="width: 100%;" class="premium-select">
+                <el-option v-for="diff in interview_difficulties" :key="diff" :label="diff" :value="diff"></el-option>
+              </el-select>
+            </div>
+
+            <div class="request-preview">
+              <div class="context-title">Request Preview</div>
+              <el-collapse v-model="expandedPreviewSections" class="preview-accordion">
+                <el-collapse-item title="System Prompt" name="system">
+                  <el-input
+                    type="textarea"
+                    :value="baseSystemPromptPreview"
+                    readonly
+                    :autosize="{ minRows: 3, maxRows: 8 }"
+                    class="premium-input preview-area">
+                  </el-input>
+                </el-collapse-item>
+                <el-collapse-item title="Agent Personalization" name="personalization">
+                  <el-input
+                    type="textarea"
+                    :value="agentPersonalizationPreview"
+                    readonly
+                    :autosize="{ minRows: 3, maxRows: 8 }"
+                    class="premium-input preview-area">
+                  </el-input>
+                </el-collapse-item>
+                <el-collapse-item title="Interview Context" name="context">
+                  <el-input
+                    type="textarea"
+                    :value="interviewContextPreview"
+                    readonly
+                    :autosize="{ minRows: 3, maxRows: 8 }"
+                    class="premium-input preview-area">
+                  </el-input>
+                </el-collapse-item>
+                <el-collapse-item title="Expected Q&A" name="qa">
+                  <el-input
+                    type="textarea"
+                    :value="expectedQaPreview"
+                    readonly
+                    :autosize="{ minRows: 3, maxRows: 8 }"
+                    class="premium-input preview-area">
+                  </el-input>
+                </el-collapse-item>
+                <el-collapse-item title="User Prompt" name="user">
+                  <el-input
+                    type="textarea"
+                    :value="resolvedUserPrompt"
+                    readonly
+                    :autosize="{ minRows: 3, maxRows: 8 }"
+                    class="premium-input preview-area">
+                  </el-input>
+                </el-collapse-item>
+              </el-collapse>
             </div>
           </div>
         </el-collapse-transition>
 
-        <LoadingIcon v-show="show_ai_thinking_effect"/>
-        <div class="ai_result_content">{{ ai_result }}</div>
-        <div class="single_part_bottom_bar">
-          <el-button icon="el-icon-thumb" @click="askCurrentText" :disabled="!isGetGPTAnswerAvailable">
+        <div v-if="ai_result" class="markdown-body ai_result_content" v-html="renderedAiResult"></div>
+        <div v-else-if="!show_ai_thinking_effect" class="empty-state" style="margin-top: 40px;">Waiting for GPT response...</div>
+        
+        <LoadingIcon v-show="show_ai_thinking_effect" style="margin: 40px auto;"/>
+        
+        <div class="single_part_bottom_bar" style="margin-top: auto; padding-top: 15px;">
+          <el-button class="action-btn ask-btn" icon="el-icon-thumb" type="success" @click="askCurrentText" :disabled="!isGetGPTAnswerAvailable">
             Ask GPT
           </el-button>
         </div>
       </div>
     </div>
-    <div class="title_function_bar">
-      <el-button
-          type="success"
-          @click="startCopilot" v-show="state==='end'" :loading="copilot_starting"
-          :disabled="copilot_starting">Start Copilot
-      </el-button>
-      <el-button
-          :loading="copilot_stopping"
-          @click="userStopCopilot" v-show="state==='ing'">Stop Copilot
-      </el-button>
-      <MyTimer ref="MyTimer"/>
-    </div>
-
   </div>
 </template>
 
 <script>
+import { marked } from 'marked';
 import Assert from "assert-js"
 import LoadingIcon from "@/components/LoadingIcon.vue";
 import MyTimer from "@/components/MyTimer.vue";
@@ -108,6 +185,52 @@ export default {
     isGetGPTAnswerAvailable() {
       // return this.state === "ing" && !!this.currentText
       return !!this.currentText || !!this.manualText
+    },
+    renderedAiResult() {
+      if (!this.ai_result) return "";
+      return marked(this.ai_result);
+    },
+    baseSystemPromptPreview() {
+      const prompt = (config_util.effective_gpt_system_prompt ? config_util.effective_gpt_system_prompt() : config_util.gpt_system_prompt()) || "";
+      return prompt.trim() || "Empty";
+    },
+    agentPersonalizationPreview() {
+      if (!this.use_personalization) return "Disabled";
+      const parts = [];
+      if (this.agent_role) parts.push(`Role: ${this.agent_role}`);
+      if (this.agent_tone) parts.push(`Tone: ${this.agent_tone}`);
+      if (this.interview_difficulty) parts.push(`Difficulty: ${this.interview_difficulty}`);
+      return parts.join("\n") || "Empty";
+    },
+    interviewContextPreview() {
+      if (!this.use_personalization) return "Disabled";
+      const parts = [];
+      const resume = config_util.resume_text();
+      const jd = config_util.job_description();
+      if (resume) parts.push(`Candidate Resume:\n${resume}`);
+      if (jd) parts.push(`Job Description:\n${jd}`);
+      return parts.join("\n\n") || "Empty";
+    },
+    expectedQaPreview() {
+      if (!this.use_personalization) return "Disabled";
+      return config_util.expected_qa() || "Empty";
+    },
+    resolvedUserPrompt() {
+      const parts = [];
+      const gptTemplate = this.gpt_prompt_template || config_util.gpt_prompt_template() || "";
+      if (gptTemplate) parts.push(gptTemplate);
+      if (this.currentText) parts.push(this.currentText);
+      if (this.manualText) parts.push(`[Manual Note]: ${this.manualText}`);
+      return parts.join("\n\n").trim() || "Empty";
+    },
+    resolvedSystemPrompt() {
+      const sections = [this.baseSystemPromptPreview];
+      if (this.use_personalization) {
+        if (this.agentPersonalizationPreview && this.agentPersonalizationPreview !== "Empty") sections.push(this.agentPersonalizationPreview);
+        if (this.interviewContextPreview && this.interviewContextPreview !== "Empty") sections.push(this.interviewContextPreview);
+        if (this.expectedQaPreview && this.expectedQaPreview !== "Empty") sections.push(this.expectedQaPreview);
+      }
+      return sections.filter(Boolean).join("\n\n").trim();
     }
   },
   components: {LoadingIcon, MyTimer},
@@ -127,15 +250,30 @@ export default {
       recognizers: [],
       auto_ask_gpt: false,
       use_personalization: true,
+      agent_role: "",
+      agent_tone: "",
+      interview_difficulty: "",
       gpt_prompt_template: "",
       auto_ask_timer: null,
       show_gpt_settings: false,
+      expandedPreviewSections: ["system", "personalization", "context", "qa", "user"],
       prompt_presets: [
         { label: "Default Interviewer", value: "The following is a transcript of an interview dialogue. Please extract the last question asked by the interviewer and provide an answer. If it is an algorithm question, please provide the approach and code implementation. If no question is found, there is no need to respond." },
         { label: "Software Engineer", value: "You are an assistant for a Software Engineering Interview. Listen to the transcript, extract the last question asked, and provide a comprehensive, accurate, and concise technical response with code examples if applicable." },
         { label: "Product Manager", value: "You are an assistant for a Product Manager Interview. Listen to the transcript, extract the last question asked, and provide a strategic, user-centric, and clear response highlighting metrics, user needs, and product vision." },
         { label: "Data Scientist", value: "You are an assistant for a Data Scientist Interview. Extract the last question from the transcript and provide a detailed response focusing on statistical accuracy, data modeling techniques, and practical business applications." },
         { label: "System Design", value: "You are an assistant for a System Design Interview. Extract the latest question from the transcript and provide a scalable, highly-available, and performant architectural solution. Discuss trade-offs, bottlenecks, and components (e.g. load balancers, caching, databases)." }
+      ],
+      agent_roles: [
+        "Interviewer (Ask questions, critique answers)",
+        "Co-Pilot/Helper (Provide hints, solve questions for me)",
+        "Evaluator/Recruiter (Assess overall communication)"
+      ],
+      agent_tones: [
+        "Strict & Direct", "Friendly & Encouraging", "Professional & Formal", "Conversational & Relaxed"
+      ],
+      interview_difficulties: [
+        "Internship", "Junior / Entry-Level", "Mid-Level", "Senior", "Staff / Lead / Principal"
       ],
     }
   },
@@ -147,6 +285,9 @@ export default {
     this.gpt_prompt_template = config_util.gpt_prompt_template() || "";
     this.auto_ask_gpt = localStorage.getItem("auto_ask_gpt") === "true";
     this.use_personalization = localStorage.getItem("use_personalization") !== "false";
+    this.agent_role = localStorage.getItem("agent_role") || "";
+    this.agent_tone = localStorage.getItem("agent_tone") || "";
+    this.interview_difficulty = localStorage.getItem("interview_difficulty") || "";
   },
   watch: {
     auto_ask_gpt(val) {
@@ -162,33 +303,20 @@ export default {
     onPromptTemplateChange(val) {
       localStorage.setItem("gpt_prompt_template", val);
     },
+    onPreRunContextChange(key) {
+      localStorage.setItem(key, this[key]);
+    },
     async askCurrentText() {
       const apiKey = config_util.openai_key()
-      let content = this.currentText
       
       this.ai_result = ""
       this.show_ai_thinking_effect = true
       const model = config_util.gpt_model()
-      let gpt_system_prompt = config_util.gpt_system_prompt() || ""
-      const gpt_template = this.gpt_prompt_template || config_util.gpt_prompt_template() || ""
-      
-      if (this.use_personalization) {
-          const role = config_util.agent_role()
-          const tone = config_util.agent_tone()
-          const difficulty = config_util.interview_difficulty()
-          const resume = config_util.resume_text()
-          const jd = config_util.job_description()
-          const qa = config_util.expected_qa()
-          
-          if (role) gpt_system_prompt += `\nYour Role: ${role}.`
-          if (tone) gpt_system_prompt += `\nYour Tone/Personality: ${tone}.`
-          if (difficulty) gpt_system_prompt += `\nInterview Difficulty Level: ${difficulty}.`
-          if (resume) gpt_system_prompt += `\nCandidate's Resume:\n${resume}\n`
-          if (jd) gpt_system_prompt += `\nJob Description:\n${jd}\n`
-          if (qa) gpt_system_prompt += `\nExpected Q&A:\n${qa}\n`
+      const messages = []
+      if (this.resolvedSystemPrompt && this.resolvedSystemPrompt !== "Empty") {
+        messages.push({ role: "system", content: this.resolvedSystemPrompt })
       }
-      
-      content = gpt_system_prompt + "\n" + gpt_template + "\n" + content
+      messages.push({ role: "user", content: this.resolvedUserPrompt })
 
       try {
         if (!apiKey) {
@@ -224,7 +352,7 @@ export default {
         const openai = new OpenAI({apiKey: apiKey, dangerouslyAllowBrowser: true})
         const stream = await openai.chat.completions.create({
           model: model,
-          messages: [{role: "user", content: content}],
+          messages,
           stream: true,
         });
         this.show_ai_thinking_effect = false
@@ -418,92 +546,327 @@ async function sleep(ms) {
 
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
-<style scoped>
+<style>
+/* CSS Variables for Dynamic Theming */
+body {
+  --bg-primary: #f5f7fa;
+  --bg-panel: #ffffff;
+  --border-color: #e4e7ed;
+  --text-primary: #303133;
+  --text-secondary: #909399;
+  --brand-primary: #409EFF;
+  --brand-success: #67C23A;
+  --brand-danger: #F56C6C;
+  --btn-hover: rgba(64, 158, 255, 0.1);
+  --shadow-sm: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px 0 rgba(0, 0, 0, 0.08);
+}
 
+body.dark-mode {
+  --bg-primary: #121212;
+  --bg-panel: #1e1e1e;
+  --border-color: #333333;
+  --text-primary: #e0e0e0;
+  --text-secondary: #888888;
+  --brand-primary: #3a8ee6;
+  --brand-success: #5daf34;
+  --brand-danger: #f78989;
+  --btn-hover: rgba(58, 142, 230, 0.15);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Dark mode fix for deep alert items */
+body.dark-mode .premium-alert {
+  background-color: #1e1e1e !important;
+  border-color: #333 !important;
+  color: #a0a0a0 !important;
+}
+body.dark-mode .premium-alert .el-alert__title {
+  color: #e0e0e0 !important;
+}
+body.dark-mode .premium-alert .el-alert__description {
+  color: #a0a0a0 !important;
+}
+body.dark-mode .premium-switch .el-switch__label {
+  color: var(--text-primary) !important;
+}
+</style>
+
+<style scoped>
 .homeview_container {
   display: flex;
   flex-direction: column;
+  background-color: transparent;
+  min-height: calc(100vh - 80px);
+  padding: 10px 20px;
+  box-sizing: border-box;
 }
 
+/* Alert Styling Overrides */
+.premium-alert {
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-panel);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Action Bar */
 .title_function_bar {
-  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  background-color: var(--bg-panel);
+  padding: 15px 30px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+}
+
+.timer-display {
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+/* Pulse Buttons for Main Actions */
+.pulse-btn {
+  border-radius: 8px !important;
+  padding: 10px 24px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease !important;
+}
+.pulse-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Center Container (Left & Right Panels) */
+.center_container {
+  display: flex;
+  gap: 20px;
+  flex-grow: 1;
+}
+
+.panel {
+  flex: 1;
+  background-color: var(--bg-panel);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.panel-header {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-header i {
+  color: var(--text-secondary);
+}
+
+.collapsable-header {
+  cursor: pointer;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  transition: background-color 0.2s;
+  border: 1px solid var(--bg-primary);
+}
+.collapsable-header:hover {
+  background-color: var(--btn-hover);
+  border-color: var(--border-color);
+}
+.toggle-icon {
+  color: var(--text-secondary);
+  font-weight: bold;
+}
+
+/* Status Text */
+.empty-state {
   text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+/* Customizing Inputs for IDE-like feel */
+.premium-input {
+  box-shadow: none !important;
+}
+.asr_content_input, .manual_content_input {
+  display: flex;
+  flex-direction: column;
+}
+
+.asr_content_input >>> .el-textarea__inner, .manual_content_input >>> .el-textarea__inner {
+  resize: vertical;
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  font-family: inherit;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.asr_content_input >>> .el-textarea__inner:focus, .manual_content_input >>> .el-textarea__inner:focus {
+  border-color: var(--brand-primary) !important;
+  box-shadow: 0 0 0 1px var(--brand-primary) !important;
+}
+
+/* Settings Panel */
+.gpt-settings-panel {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+.settings-toggles {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.toggle-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-label {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.pre-run-context {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.request-preview {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+}
+
+.context-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
-.center_container {
+.preview-accordion {
+  border-top: none;
+  border-bottom: none;
+  background: transparent;
+}
+
+.preview-accordion >>> .el-collapse-item__header {
+  background: transparent;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+}
+
+.preview-accordion >>> .el-collapse-item__wrap {
+  background: transparent;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.preview-accordion >>> .el-collapse-item__content {
+  padding-bottom: 12px;
+}
+
+.preview-area >>> .el-textarea__inner {
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+  border-radius: 8px;
+  padding: 12px;
+  line-height: 1.5;
+}
+
+/* AI Results Area & Markdown Styling */
+.ai_result_content {
   flex-grow: 1;
-  display: flex;
-  height: calc(100vh - 150px);
+  overflow-y: auto;
+  padding: 16px;
+  background-color: var(--bg-primary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
-.box {
-  flex: 1; /* 设置flex属性为1，使两个div平分父容器的宽度 */
-  border: 1px lightgray solid; /* 为了演示，添加边框样式 */
-  padding: 10px; /* 为了演示，添加内边距 */
-  white-space: pre-wrap;
-  display: flex;
-  flex-direction: column;
+.markdown-body {
+  word-wrap: break-word;
+}
+.markdown-body >>> h1, .markdown-body >>> h2, .markdown-body >>> h3 {
+  margin-top: 20px;
+  margin-bottom: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.markdown-body >>> p { margin-bottom: 12px; }
+.markdown-body >>> pre {
+  background-color: #2b2b2b;
+  color: #a9b7c6;
+  border-radius: 6px;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--border-color);
+}
+.markdown-body >>> code {
+  font-family: monospace;
+  background-color: rgba(127, 127, 127, 0.1);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.markdown-body >>> ul, .markdown-body >>> ol {
+  padding-left: 2em;
+  margin-bottom: 12px;
 }
 
-.asr_content_input, .manual_content_input {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-}
-.asr_content_input >>> .el-textarea__inner, .manual_content_input >>> .el-textarea__inner {
-  flex-grow: 1;
-  resize: none;
-  font-family: inherit;
-  font-size: 14px;
-}
-
-.func_desc {
-  text-align: center;
-}
-
+/* Action Buttons Bottom */
 .single_part_bottom_bar {
   display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+.action-btn {
+  flex: 1;
+  border-radius: 8px !important;
+  font-weight: bold !important;
+  transition: all 0.2s !important;
 }
 
-.single_part_bottom_bar > .el-button {
-  flex-grow: 1;
+.premium-switch .el-switch__label,
+.premium-switch .el-switch__label * {
+  color: var(--text-primary) !important;
 }
-
-
-.ai_result_content {
-  overflow-y: auto;
-  flex-grow: 1;
-}
-
-.popup-tag {
-  position: absolute;
-  display: none;
-  background-color: #785448d4;
-  color: white;
-  padding: 5px;
-  font-size: 15px;
-  font-weight: bold;
-  text-decoration: underline;
-  cursor: pointer;
-  -webkit-filter: drop-shadow(0 1px 10px rgba(113, 158, 206, 0.8));
-}
-
-.error_msg {
-  color: red;
-  text-align: center;
-}
-
-.gpt-settings-panel {
-  margin-bottom: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background-color: rgba(128, 128, 128, 0.05);
-  padding: 10px;
-  border-radius: 4px;
-  border: 1px solid rgba(128, 128, 128, 0.15);
-}
-
 </style>
