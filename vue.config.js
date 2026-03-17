@@ -49,5 +49,26 @@ if (process.env.WHISPER_API_KEY_LOCATION) {
 
 module.exports = defineConfig({
   transpileDependencies: true,
-  publicPath: '' // 设置publicPath为空字符串
+  publicPath: '', // 设置publicPath为空字符串
+  devServer: {
+    hot: true,
+    liveReload: true,
+    client: {
+      overlay: true,
+    },
+    watchFiles: {
+      paths: ['src/**/*', 'public/**/*', '*.js', '*.json', '*.vue'],
+      options: {
+        usePolling: true,
+        interval: 300,
+      },
+    },
+  },
+  configureWebpack: {
+    watchOptions: {
+      poll: 300,
+      aggregateTimeout: 200,
+      ignored: /node_modules/,
+    },
+  },
 })

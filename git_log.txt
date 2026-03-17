@@ -1,0 +1,5 @@
+52d6c25 - feat: add audio recorder browser extension and integrate into app UI
+6aa4d71 - Enable parsing of text from external Resume/JD URLs and add tests
+4eed273 - Organize Playwright tests and add GPT UI settings toggle
+ce395fa - chore: switch from npm to pnpm and update dev scripts
+8ef3a39 - Update README.md
