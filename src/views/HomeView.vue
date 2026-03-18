@@ -255,7 +255,7 @@ export default {
       interview_difficulty: "",
       gpt_prompt_template: "",
       auto_ask_timer: null,
-      show_gpt_settings: false,
+      show_gpt_settings: true,
       expandedPreviewSections: ["system", "personalization", "context", "qa", "user"],
       prompt_presets: [
         { label: "Default Interviewer", value: "The following is a transcript of an interview dialogue. Please extract the last question asked by the interviewer and provide an answer. If it is an algorithm question, please provide the approach and code implementation. If no question is found, there is no need to respond." },
