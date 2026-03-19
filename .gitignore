@@ -20,3 +20,7 @@ pnpm-debug.log*
 *.sln
 *.sw?
 .env
+
+# Playwright artifacts
+src/tests/e2e/playwright/playwright-report/
+src/tests/e2e/playwright/test-results/
